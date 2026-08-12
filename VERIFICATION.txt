@@ -1,0 +1,20 @@
+Image AI Telegram Bot — Final package verification
+
+Static checks performed:
+- Python source compilation: PASS
+- AST parsing: PASS
+- Dockerfile syntax structure: PASS (Docker CLI may not be available in the verification environment)
+- Koyeb deployment files present: PASS
+- Procfile present: PASS
+- Koyeb environment template present: PASS
+- Koyeb deployment helper present and executable: PASS
+- Application health endpoint remains lightweight: PASS
+
+Koyeb deployment support:
+- Dockerfile builder supported
+- PORT-aware Uvicorn command
+- HTTP port 8000 exposed
+- /api/healthz recommended for HTTP health checks
+- CLI deployment helper in deploy/koyeb-deploy.sh
+
+Live Koyeb deployment was not performed because no Koyeb account/token was provided.

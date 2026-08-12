@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: image-ai-telegram-bot
+    runtime: python
+    plan: free
+
+    buildCommand: pip install -r requirements.txt
+
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+    healthCheckPath: /api/healthz
+
+    envVars:
+      # Required secrets
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+
+      - key: MONGODB_URI
+        sync: false
+
+      - key: ADMIN_IDS
+        sync: false
+
+      - key: SETTINGS_ENCRYPTION_KEY
+        generateValue: true
+
+      - key: PUBLIC_BASE_URL
+        sync: false
+
+      - key: WEBHOOK_SECRET
+        generateValue: true
+
+      # Optional / default configuration
+      - key: MONGODB_DATABASE
+        value: image_ai_bot
+
+      - key: MAX_UPLOAD_MB
+        value: "20"
+
+      - key: PIXELCUT_TIMEOUT
+        value: "120"
+
+      - key: UPTIME_INTERVAL
+        value: "300"
+
+      - key: UPTIME_URL
+        sync: false

@@ -43,7 +43,8 @@ async def _uptime_loop():
 async def _cleanup_loop():
     while not _stop_event.is_set():
         try:
-            if get_db():
+            database = get_db()
+            if database is not None:
                 await cleanup_expired_jobs()
                 await cleanup_expired_media()
         except asyncio.CancelledError:

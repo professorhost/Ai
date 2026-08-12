@@ -76,9 +76,9 @@ class Settings:
 
     default_max_upload_mb: int = _int_env(
         "MAX_UPLOAD_MB",
-        20,
+        25,
         1,
-        20,
+        25,
     )
 
     default_timeout: int = _int_env(

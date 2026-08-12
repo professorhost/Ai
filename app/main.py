@@ -149,4 +149,4 @@ async def _cleanup_loop():
         except asyncio.TimeoutError:
             continue
 
-        except asyncio.Cancel
+        except asyncio.CancelledError:

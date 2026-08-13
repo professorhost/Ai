@@ -216,6 +216,7 @@ async def root():
 
 
 @app.get("/api/healthz")
+@app.head("/api/healthz")
 async def healthz():
     # Always fast and intentionally independent of MongoDB/Telegram.
     return {"status": "ok"}

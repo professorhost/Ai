@@ -41,6 +41,8 @@ async def _uptime_loop():
 
 
 async def _cleanup_loop():
+    # Give MongoDB connection time to initialize during startup.
+    await asyncio.sleep(5)
     while not _stop_event.is_set():
         try:
             database = get_db()
@@ -49,13 +51,27 @@ async def _cleanup_loop():
                 await cleanup_expired_media()
         except asyncio.CancelledError:
             raise
-        except Exception:
-            logger.warning("Durable storage cleanup failed.", exc_info=True)
+        except RuntimeError as exc:
+            if "MongoDB is not connected" in str(exc):
+                # MongoDB is still initializing; try again later.
+                pass
+            else:
+                logger.warning(
+                    "Durable storage cleanup failed: %s",
+                    type(exc).__name__,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Durable storage cleanup failed: %s",
+                type(exc).__name__,
+            )
         try:
-            await asyncio.wait_for(_stop_event.wait(), timeout=300)
+            await asyncio.wait_for(
+                _stop_event.wait(),
+                timeout=300,
+            )
         except asyncio.TimeoutError:
             continue
-
 
 async def _build_telegram():
     global telegram_app

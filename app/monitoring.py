@@ -27,6 +27,9 @@ class RingLogHandler(logging.Handler):
 
 def install_logging():
     root = logging.getLogger()
+    # Production: suppress noisy HTTP client request logs.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     if not any(isinstance(h, RingLogHandler) for h in root.handlers):
         handler = RingLogHandler()
         handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))

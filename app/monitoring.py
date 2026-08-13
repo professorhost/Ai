@@ -1,6 +1,7 @@
 # app/monitoring.py
 
 import logging
+import re
 import time
 from collections import deque
 from datetime import datetime, timezone
@@ -13,38 +14,51 @@ _last_webhook = None
 _log_buffer = deque(maxlen=200)
 
 
+# Redact Telegram bot tokens from logs.
+_TOKEN_RE = re.compile(
+    r"(https?://api\.telegram\.org/bot)"
+    r"([0-9]{6,}:[A-Za-z0-9_-]+)",
+    re.IGNORECASE,
+)
+def _redact_secrets(text: str) -> str:
+    """Remove Telegram bot tokens from log messages."""
+    return _TOKEN_RE.sub(r"\1[REDACTED]", text)
+
 class RingLogHandler(logging.Handler):
     def emit(self, record):
         try:
+            message = self.format(record)
             _log_buffer.append({
-                "time": datetime.fromtimestamp(record.created, timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "time": datetime.fromtimestamp(
+                    record.created,
+                    timezone.utc,
+                ).strftime("%Y-%m-%d %H:%M:%S UTC"),
                 "level": record.levelname,
-                "message": self.format(record),
+                "message": _redact_secrets(message),
             })
         except Exception:
             pass
 
-
 def install_logging():
     root = logging.getLogger()
+
     # Production: suppress noisy HTTP client request logs.
+    # This prevents Telegram API URLs/tokens from being logged by httpx/httpcore.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+
     if not any(isinstance(h, RingLogHandler) for h in root.handlers):
         handler = RingLogHandler()
         handler.setFormatter(logging.Formatter("%(name)s: %(message)s"))
         root.addHandler(handler)
     root.setLevel(logging.INFO)
 
-
 def mark_webhook():
     global _last_webhook
     _last_webhook = datetime.now(timezone.utc)
 
-
 def uptime_seconds() -> int:
     return max(0, int(time.monotonic() - _started_monotonic))
-
 
 def format_uptime() -> str:
     seconds = uptime_seconds()
@@ -53,11 +67,9 @@ def format_uptime() -> str:
     minutes, seconds = divmod(seconds, 60)
     return f"{days}d {hours:02d}h {minutes:02d}m {seconds:02d}s"
 
-
 def recent_logs(limit: int = 20):
     limit = max(1, min(int(limit), 50))
     return list(_log_buffer)[-limit:]
-
 
 def status_payload(telegram_ready: bool, services_ready: bool, startup_error=None):
     return {
@@ -70,11 +82,16 @@ def status_payload(telegram_ready: bool, services_ready: bool, startup_error=Non
         "startup_error": startup_error,
     }
 
-
 async def ping(telegram_app=None):
-    result = {"app": "ok", "mongodb": "unknown", "telegram": "unknown"}
+    result = {
+        "app": "ok",
+        "mongodb": "unknown",
+        "telegram": "unknown",
+    }
+
     try:
         from app.database import get_db
+
         await get_db().command("ping")
         result["mongodb"] = "ok"
     except Exception as exc:
@@ -83,10 +100,10 @@ async def ping(telegram_app=None):
         try:
             await telegram_app.bot.get_me()
             result["telegram"] = "ok"
+
         except Exception as exc:
             result["telegram"] = f"error: {type(exc).__name__}"
     return result
-
 
 def is_admin(user_id: int) -> bool:
     return user_id in settings.admin_ids
@@ -106,7 +123,6 @@ async def uptime_command(update, context):
         f"Workers: {snap.get('workers', 0)}"
     )
 
-
 async def ping_command(update, context):
     if not update.message:
         return
@@ -118,7 +134,6 @@ async def ping_command(update, context):
         f"MongoDB: {result['mongodb']}\n"
         f"Telegram: {result['telegram']}"
     )
-
 
 async def log_command(update, context):
     if not update.message:
@@ -135,7 +150,8 @@ async def log_command(update, context):
         await update.message.reply_text("No logs available yet.")
         return
     text = "📋 Recent logs\n\n" + "\n".join(
-        f"[{row['time']}] {row['level']} — {row['message']}" for row in rows
+        f"[{row['time']}] {row['level']} — {row['message']}"
+        for row in rows
     )
     if len(text) > 4000:
         text = text[-4000:]
